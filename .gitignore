@@ -1,0 +1,12 @@
+__pycache__/
+.venv/
+.vscode/
+.python-version
+uv.lock
+
+[Bb]uild
+[Dd]ata
+demo_output/
+*.egg-info
+
+*.pth

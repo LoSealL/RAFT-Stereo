@@ -113,17 +113,17 @@ std::vector<torch::Tensor> sampler_cuda_forward(
   const auto ht = volume.size(1);
   const auto wd = volume.size(2);
 
-  const dim3 blocks((wd + BLOCK - 1) / BLOCK, 
-                    (ht + BLOCK - 1) / BLOCK, 
+  const dim3 blocks((wd + BLOCK - 1) / BLOCK,
+                    (ht + BLOCK - 1) / BLOCK,
                     batch_size);
-  
+
   const dim3 threads(BLOCK, BLOCK);
 
   auto opts = volume.options();
   torch::Tensor corr = torch::zeros(
     {batch_size, 2*radius+1, ht, wd}, opts);
 
-  AT_DISPATCH_FLOATING_TYPES_AND_HALF(volume.type(), "sampler_forward_kernel", ([&] {
+  AT_DISPATCH_FLOATING_TYPES_AND_HALF(volume.scalar_type(), "sampler_forward_kernel", ([&] {
     sampler_forward_kernel<scalar_t><<<blocks, threads>>>(
       volume.packed_accessor32<scalar_t,4,torch::RestrictPtrTraits>(),
       coords.packed_accessor32<float,4,torch::RestrictPtrTraits>(),
@@ -147,14 +147,14 @@ std::vector<torch::Tensor> sampler_cuda_backward(
 
   auto volume_grad = torch::zeros_like(volume);
 
-  const dim3 blocks((wd + BLOCK - 1) / BLOCK, 
-                    (ht + BLOCK - 1) / BLOCK, 
+  const dim3 blocks((wd + BLOCK - 1) / BLOCK,
+                    (ht + BLOCK - 1) / BLOCK,
                     batch_size);
 
   const dim3 threads(BLOCK, BLOCK);
 
 
-  AT_DISPATCH_FLOATING_TYPES_AND_HALF(volume.type(), "sampler_backward_kernel", ([&] {
+  AT_DISPATCH_FLOATING_TYPES_AND_HALF(volume.scalar_type(), "sampler_backward_kernel", ([&] {
     sampler_backward_kernel<scalar_t><<<blocks, threads>>>(
       coords.packed_accessor32<float,4,torch::RestrictPtrTraits>(),
       corr_grad.packed_accessor32<scalar_t,4,torch::RestrictPtrTraits>(),
@@ -164,4 +164,3 @@ std::vector<torch::Tensor> sampler_cuda_backward(
 
   return {volume_grad};
 }
-

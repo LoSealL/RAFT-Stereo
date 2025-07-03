@@ -8,11 +8,11 @@ from core.utils.utils import coords_grid, upflow8
 
 
 try:
-    autocast = torch.cuda.amp.autocast
+    autocast = torch.amp.autocast
 except:
     # dummy autocast for PyTorch < 1.6
     class autocast:
-        def __init__(self, enabled):
+        def __init__(self, device_type, enabled):
             pass
         def __enter__(self):
             pass
@@ -23,7 +23,7 @@ class RAFTStereo(nn.Module):
     def __init__(self, args):
         super().__init__()
         self.args = args
-        
+
         context_dims = args.hidden_dims
 
         self.cnet = MultiBasicEncoder(output_dim=[args.hidden_dims, context_dims], norm_fn=args.context_norm, downsample=args.n_downsample)
@@ -74,7 +74,7 @@ class RAFTStereo(nn.Module):
         image2 = (2 * (image2 / 255.0) - 1.0).contiguous()
 
         # run the context network
-        with autocast(enabled=self.args.mixed_precision):
+        with autocast('cuda', enabled=self.args.mixed_precision):
             if self.args.shared_backbone:
                 *cnet_list, x = self.cnet(torch.cat((image1, image2), dim=0), dual_inp=True, num_layers=self.args.n_gru_layers)
                 fmap1, fmap2 = self.conv2(x).split(dim=0, split_size=x.shape[0]//2)
@@ -84,7 +84,7 @@ class RAFTStereo(nn.Module):
             net_list = [torch.tanh(x[0]) for x in cnet_list]
             inp_list = [torch.relu(x[1]) for x in cnet_list]
 
-            # Rather than running the GRU's conv layers on the context features multiple times, we do it once at the beginning 
+            # Rather than running the GRU's conv layers on the context features multiple times, we do it once at the beginning
             inp_list = [list(conv(i).split(split_size=conv.out_channels//3, dim=1)) for i,conv in zip(inp_list, self.context_zqr_convs)]
 
         if self.args.corr_implementation == "reg": # Default
@@ -109,7 +109,7 @@ class RAFTStereo(nn.Module):
             coords1 = coords1.detach()
             corr = corr_fn(coords1) # index correlation volume
             flow = coords1 - coords0
-            with autocast(enabled=self.args.mixed_precision):
+            with autocast('cuda', enabled=self.args.mixed_precision):
                 if self.args.n_gru_layers == 3 and self.args.slow_fast_gru: # Update low-res GRU
                     net_list = self.update_block(net_list, inp_list, iter32=True, iter16=False, iter08=False, update=False)
                 if self.args.n_gru_layers >= 2 and self.args.slow_fast_gru:# Update low-res GRU and mid-res GRU

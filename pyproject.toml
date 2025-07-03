@@ -1,0 +1,30 @@
+[project]
+name = "raft-stereo"
+version = "0.1.0"
+description = "RAFT-Stereo: A PyTorch implementation of RAFT for stereo matching"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "corr-sampler",
+    "imageio>=2.37.0",
+    "matplotlib>=3.10.3",
+    "opencv-python>=4.11.0.86",
+    "opt-einsum>=3.4.0",
+    "scikit-image>=0.25.2",
+    "scipy>=1.15.3",
+    "tensorboard>=2.19.0",
+    "torch>=2.7.1",
+    "torchvision>=0.22.1",
+    "tqdm>=4.67.1",
+]
+
+[tool.uv.sources]
+torch = { index = "pytorch" }
+torchaudio = { index = "pytorch" }
+torchvision = { index = "pytorch" }
+corr-sampler = { path = "sampler" }
+
+[[tool.uv.index]]
+name = "pytorch"
+url = "https://download.pytorch.org/whl/cu126"
+explicit = true

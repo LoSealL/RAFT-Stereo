@@ -46,7 +46,7 @@ def demo(args):
             _, flow_up = model(image1, image2, iters=args.valid_iters, test_mode=True)
             flow_up = padder.unpad(flow_up).squeeze()
 
-            file_stem = imfile1.split('/')[-2]
+            file_stem = Path(imfile1).stem
             if args.save_numpy:
                 np.save(output_directory / f"{file_stem}.npy", flow_up.cpu().numpy().squeeze())
             plt.imsave(output_directory / f"{file_stem}.png", -flow_up.cpu().numpy().squeeze(), cmap='jet')
@@ -72,7 +72,7 @@ if __name__ == '__main__':
     parser.add_argument('--context_norm', type=str, default="batch", choices=['group', 'batch', 'instance', 'none'], help="normalization of context encoder")
     parser.add_argument('--slow_fast_gru', action='store_true', help="iterate the low-res GRUs more frequently")
     parser.add_argument('--n_gru_layers', type=int, default=3, help="number of hidden GRU levels")
-    
+
     args = parser.parse_args()
 
     demo(args)
