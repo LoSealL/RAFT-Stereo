@@ -28,3 +28,10 @@ corr-sampler = { path = "sampler" }
 name = "pytorch"
 url = "https://download.pytorch.org/whl/cu126"
 explicit = true
+
+[tool.isort]
+profile = "black"
+line_length = 200
+
+[tool.black]
+line-length = 200

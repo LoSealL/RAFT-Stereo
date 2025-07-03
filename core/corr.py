@@ -41,6 +41,7 @@ class CorrBlockFast1D:
             self.corr_pyramid.append(corr.view(batch, h1, w1, -1, w2//2**i))
             corr = F.avg_pool2d(corr, [1,2], stride=[1,2])
 
+    @torch.profiler.itt.range("CorrBlockFast1D")
     def __call__(self, coords):
         out_pyramid = []
         bz, _, ht, wd = coords.shape
@@ -124,6 +125,7 @@ class CorrBlock1D:
             corr = F.avg_pool2d(corr, [1,2], stride=[1,2])
             self.corr_pyramid.append(corr)
 
+    @torch.profiler.itt.range("CorrBlock1D")
     def __call__(self, coords):
         r = self.radius
         coords = coords[:, :1].permute(0, 2, 3, 1)

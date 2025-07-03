@@ -43,7 +43,12 @@ def demo(args):
             padder = InputPadder(image1.shape, divis_by=32)
             image1, image2 = padder.pad(image1, image2)
 
-            _, flow_up = model(image1, image2, iters=args.valid_iters, test_mode=True)
+            with torch.profiler.profile(activities=[
+                torch.profiler.ProfilerActivity.CUDA,
+            ]) as prof:
+                _, flow_up = model(image1, image2, iters=args.valid_iters, test_mode=True)
+            if args.profile:
+                print(prof.key_averages().table(sort_by="self_cuda_time_total", row_limit=-1))
             flow_up = padder.unpad(flow_up).squeeze()
 
             file_stem = Path(imfile1).stem
@@ -72,6 +77,10 @@ if __name__ == '__main__':
     parser.add_argument('--context_norm', type=str, default="batch", choices=['group', 'batch', 'instance', 'none'], help="normalization of context encoder")
     parser.add_argument('--slow_fast_gru', action='store_true', help="iterate the low-res GRUs more frequently")
     parser.add_argument('--n_gru_layers', type=int, default=3, help="number of hidden GRU levels")
+
+    # profile
+    parser.add_argument("--cuda_graph", action='store_true', help="use CUDA graph")
+    parser.add_argument("--profile", action='store_true', help="enable profiling")
 
     args = parser.parse_args()
 

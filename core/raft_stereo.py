@@ -1,11 +1,11 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from core.update import BasicMultiUpdateBlock
-from core.extractor import BasicEncoder, MultiBasicEncoder, ResidualBlock
-from core.corr import CorrBlock1D, PytorchAlternateCorrBlock1D, CorrBlockFast1D, AlternateCorrBlock
-from core.utils.utils import coords_grid, upflow8
 
+from core.corr import AlternateCorrBlock, CorrBlock1D, CorrBlockFast1D, PytorchAlternateCorrBlock1D
+from core.extractor import BasicEncoder, MultiBasicEncoder, ResidualBlock
+from core.update import BasicMultiUpdateBlock
+from core.utils.utils import coords_grid, upflow8
 
 try:
     autocast = torch.amp.autocast
@@ -38,6 +38,9 @@ class RAFTStereo(nn.Module):
         else:
             self.fnet = BasicEncoder(output_dim=256, norm_fn='instance', downsample=args.n_downsample)
 
+        if args.cuda_graph:
+            self.cuda_graph_init = False
+
     def freeze_bn(self):
         for m in self.modules():
             if isinstance(m, nn.BatchNorm2d):
@@ -66,19 +69,26 @@ class RAFTStereo(nn.Module):
         up_flow = up_flow.permute(0, 1, 4, 2, 5, 3)
         return up_flow.reshape(N, D, factor*H, factor*W)
 
-
+    @torch.profiler.itt.range("RAFTStereo.forward")
     def forward(self, image1, image2, iters=12, flow_init=None, test_mode=False):
         """ Estimate optical flow between pair of frames """
 
         image1 = (2 * (image1 / 255.0) - 1.0).contiguous()
         image2 = (2 * (image2 / 255.0) - 1.0).contiguous()
+        cuda_graph_capture = self.cuda_graph_init if self.args.cuda_graph else False
 
         # run the context network
         with autocast('cuda', enabled=self.args.mixed_precision):
             if self.args.shared_backbone:
-                *cnet_list, x = self.cnet(torch.cat((image1, image2), dim=0), dual_inp=True, num_layers=self.args.n_gru_layers)
+                cnet_args = [torch.cat((image1, image2), dim=0), True, self.args.n_gru_layers]
+                if cuda_graph_capture:
+                    self.cnet = torch.cuda.make_graphed_callables(self.cnet, tuple(cnet_args))
+                *cnet_list, x = self.cnet(*cnet_args)
                 fmap1, fmap2 = self.conv2(x).split(dim=0, split_size=x.shape[0]//2)
             else:
+                if cuda_graph_capture:
+                    self.cnet = torch.cuda.make_graphed_callables(self.cnet, (image1, False, self.args.n_gru_layers))
+                    self.fnet = torch.cuda.make_graphed_callables(self.fnet, ([image1, image2],))
                 cnet_list = self.cnet(image1, num_layers=self.args.n_gru_layers)
                 fmap1, fmap2 = self.fnet([image1, image2])
             net_list = [torch.tanh(x[0]) for x in cnet_list]
@@ -135,6 +145,8 @@ class RAFTStereo(nn.Module):
 
             flow_predictions.append(flow_up)
 
+        if cuda_graph_capture:
+            self.cuda_graph_init = False
         if test_mode:
             return coords1 - coords0, flow_up
 
