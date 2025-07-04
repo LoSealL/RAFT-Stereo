@@ -7,6 +7,7 @@ from pathlib import Path
 import numpy as np
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 import torch.optim as optim
 from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
@@ -132,17 +133,6 @@ class Logger:
         self.writer.close()
 
 
-def disp_init(disp_gt: torch.Tensor) -> torch.Tensor:
-    # random zero out
-    mask = torch.randint_like(disp_gt, 4)  # 25% 0
-    disp_rust = disp_gt.clone()
-    disp_rust[mask == 0] = 0
-    # noise
-    noise = torch.randn_like(disp_rust) * disp_gt.max() * 0.1
-    disp_rust = disp_rust + noise
-    return disp_rust
-
-
 def train(args):
 
     model = nn.DataParallel(RAFTStereo(args))
@@ -199,7 +189,7 @@ def train(args):
                 logging.info(f"Saving file {save_path.absolute()}")
                 torch.save(model.state_dict(), save_path)
 
-                results = validate_things(model.module, iters=args.valid_iters)
+                results = validate_synth(model.module, iters=args.valid_iters)
 
                 logger.write_dict(results)
 
@@ -234,6 +224,7 @@ if __name__ == "__main__":
     # Training parameters
     parser.add_argument("--batch_size", type=int, default=6, help="batch size used during training.")
     parser.add_argument("--train_datasets", nargs="+", default=["sceneflow"], help="training datasets.")
+    parser.add_argument("--val_datasets", nargs="+", default=["sceneflow"], help="validation datasets.")
     parser.add_argument("--lr", type=float, default=0.0002, help="max learning rate.")
     parser.add_argument("--num_steps", type=int, default=100000, help="length of training schedule.")
     parser.add_argument("--image_size", type=int, nargs="+", default=[320, 720], help="size of the random image crops used during training.")
