@@ -69,9 +69,7 @@ def readPFM(file):
     return data
 
 def writePFM(file, array):
-    import os
-    assert type(file) is str and type(array) is np.ndarray and \
-           os.path.splitext(file)[1] == ".pfm"
+    assert type(array) is np.ndarray
     with open(file, 'wb') as f:
         H, W = array.shape
         headers = ["Pf\n", f"{W} {H}\n", "-1\n"]
@@ -84,7 +82,7 @@ def writePFM(file, array):
 
 def writeFlow(filename,uv,v=None):
     """ Write optical flow to file.
-    
+
     If v is None, uv is assumed to contain both u and v channels,
     stacked in depth.
     Original code by Deqing Sun, adapted from Daniel Scharstein.
@@ -172,7 +170,7 @@ def writeFlowKITTI(filename, uv):
     valid = np.ones([uv.shape[0], uv.shape[1], 1])
     uv = np.concatenate([uv, valid], axis=-1).astype(np.uint16)
     cv2.imwrite(filename, uv[..., ::-1])
-    
+
 
 def read_gen(file_name, pil=False):
     ext = splitext(file_name)[-1]

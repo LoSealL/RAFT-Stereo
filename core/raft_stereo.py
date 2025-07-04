@@ -38,6 +38,8 @@ class RAFTStereo(nn.Module):
         else:
             self.fnet = BasicEncoder(output_dim=256, norm_fn='instance', downsample=args.n_downsample)
 
+        if not hasattr(args, 'cuda_graph'):
+            args.cuda_graph = False
         if args.cuda_graph:
             self.cuda_graph_init = False
 
@@ -115,6 +117,7 @@ class RAFTStereo(nn.Module):
             coords1 = coords1 + flow_init
 
         flow_predictions = []
+        net_list_debug = [[i.detach() for i in net_list]]
         for itr in range(iters):
             with torch.profiler.itt.range("RAFTStereo.update"):
                 coords1 = coords1.detach()
@@ -126,6 +129,7 @@ class RAFTStereo(nn.Module):
                     if self.args.n_gru_layers >= 2 and self.args.slow_fast_gru:# Update low-res GRU and mid-res GRU
                         net_list = self.update_block(net_list, inp_list, iter32=self.args.n_gru_layers==3, iter16=True, iter08=False, update=False)
                     net_list, up_mask, delta_flow = self.update_block(net_list, inp_list, corr, flow, iter32=self.args.n_gru_layers==3, iter16=self.args.n_gru_layers>=2)
+                    net_list_debug.append([i.detach() for i in net_list])
 
             # in stereo mode, project flow onto epipolar
             delta_flow[:,1] = 0.0
